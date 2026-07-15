@@ -1,0 +1,10 @@
+{
+  "frista_path": "C:\\frista\\frista.exe",
+  "finger_path": "C:\\Program Files (x86)\\BPJS Kesehatan\\Aplikasi Sidik Jari BPJS Kesehatan\\After.exe",
+  "username": "",
+  "password": "",
+  "host": "127.0.0.1",
+  "port": 5000,
+  "frista_api": "https://frista.bpjs-kesehatan.go.id/frista-api",
+  "camera_id": 0
+}
