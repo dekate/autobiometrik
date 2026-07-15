@@ -44,6 +44,12 @@ class Config:
     # Server bind
     host: str = "127.0.0.1"
     port: int = 5000
+    # TLS — when both are set, the server runs over HTTPS. Needed when the
+    # kiosk page is served over HTTPS (a secure page cannot reliably reach an
+    # http:// helper). See the "Running behind an HTTPS kiosk" section of the
+    # README for how to obtain a trusted certificate.
+    tls_cert: str = ""
+    tls_key: str = ""
     # Extras (kept for parity with the legacy config.conf)
     frista_api: str = DEFAULT_FRISTA_API
     camera_id: int = 0
@@ -54,6 +60,14 @@ class Config:
     @property
     def has_credentials(self) -> bool:
         return bool(self.username and self.password)
+
+    @property
+    def tls_enabled(self) -> bool:
+        return bool(self.tls_cert and self.tls_key)
+
+    @property
+    def scheme(self) -> str:
+        return "https" if self.tls_enabled else "http"
 
 
 def _base_dir() -> Path:
@@ -136,6 +150,8 @@ def load_config(config_path: str | os.PathLike | None = None) -> Config:
         cfg.port = int(data.get("port", cfg.port))
     except (TypeError, ValueError):
         pass
+    cfg.tls_cert = data.get("tls_cert", cfg.tls_cert)
+    cfg.tls_key = data.get("tls_key", cfg.tls_key)
 
     cfg.frista_api = data.get("frista_api") or legacy.get("frista_api", cfg.frista_api)
     cfg.camera_id = data.get("camera_id", legacy.get("camera_id", cfg.camera_id))

@@ -5,6 +5,8 @@
   "password": "",
   "host": "127.0.0.1",
   "port": 5000,
+  "tls_cert": "",
+  "tls_key": "",
   "frista_api": "https://frista.bpjs-kesehatan.go.id/frista-api",
   "camera_id": 0
 }

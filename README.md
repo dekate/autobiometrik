@@ -108,16 +108,68 @@ From the kiosk front-end, call the endpoints when the patient chooses a
 verification method:
 
 ```js
+const BRIDGE = 'http://127.0.0.1:5000' // or your HTTPS URL — see below
+
 // Face recognition
-await fetch(`http://127.0.0.1:5000/run_exe?no_peserta=${encodeURIComponent(noBpjs)}`)
+await fetch(`${BRIDGE}/run_exe?no_peserta=${encodeURIComponent(noBpjs)}`)
 
 // Fingerprint
-await fetch(`http://127.0.0.1:5000/run_finger_exec?no_peserta=${encodeURIComponent(noBpjs)}`)
+await fetch(`${BRIDGE}/run_finger_exec?no_peserta=${encodeURIComponent(noBpjs)}`)
 ```
 
-If your kiosk page is served over **HTTPS**, calling `http://127.0.0.1` is
-mixed content and browsers may block it. Serve the kiosk over plain HTTP on the
-device, or front this service with a locally-trusted certificate.
+## Running behind an HTTPS kiosk
+
+If your kiosk web app is served over **HTTPS** (most are), a plain
+`http://127.0.0.1` call is problematic:
+
+- It is *technically* exempt from mixed-content blocking (loopback is a
+  "potentially trustworthy" origin), **but**
+- Chrome 142+ shows a one-time **Local Network Access** permission prompt the
+  first time a public HTTPS page reaches loopback, and the behaviour differs
+  across browsers/versions.
+
+The reliable fix is to run **this service over HTTPS too**, so the request is
+secure→secure. Set `tls_cert` and `tls_key` in `config.json` and it serves
+HTTPS automatically. The only real question is how to get a certificate the
+browser will *trust* — pick one:
+
+### Option A — Public certificate on a loopback domain (zero per-kiosk setup)
+
+This is how desktop apps like Plex and Discord do it. One-time setup by you,
+nothing to install on each kiosk.
+
+1. Own a domain, e.g. `dekate.id`. Point a subdomain at loopback:
+   `local.dekate.id  A  127.0.0.1`
+2. Issue a real certificate for it via Let's Encrypt using the **DNS-01**
+   challenge (the host isn't publicly reachable, so HTTP-01 won't work):
+   ```bash
+   certbot certonly --manual --preferred-challenges dns -d local.dekate.id
+   ```
+3. Ship `fullchain.pem` / `privkey.pem` with the helper and point
+   `tls_cert` / `tls_key` at them.
+4. The kiosk calls `https://local.dekate.id:5000/...`.
+
+Every browser trusts it (public CA), traffic never leaves the machine (DNS →
+127.0.0.1). Renew every ~90 days. Note the private key ships with the app; since
+the name only resolves to loopback the exposure is limited, but treat it as
+non-secret.
+
+### Option B — Local CA per kiosk with mkcert (fully offline)
+
+No domain, no internet required. One command per kiosk during install.
+
+```bash
+# on each kiosk, once:
+mkcert -install                       # trust a local CA in the OS/browser
+mkcert 127.0.0.1 localhost            # writes cert + key for loopback
+```
+
+Point `tls_cert` / `tls_key` at the generated files. The kiosk calls
+`https://127.0.0.1:5000/...`. Nothing leaves the machine and no private key is
+distributed.
+
+> Whichever you choose, the kiosk still sends only a BPJS number; credentials
+> never travel over the wire.
 
 ## Security notes
 

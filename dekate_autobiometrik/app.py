@@ -70,6 +70,7 @@ def create_app(config: Config | None = None) -> Flask:
                 "version": __version__,
                 "autoit": AUTOIT_AVAILABLE,
                 "has_credentials": cfg.has_credentials,
+                "scheme": cfg.scheme,
             }
         )
 
@@ -119,12 +120,30 @@ def main() -> None:
     cfg = load_config()
     app = create_app(cfg)
 
+    # Build the TLS context when a cert+key are configured (HTTPS mode).
+    ssl_context = None
+    if cfg.tls_enabled:
+        import os
+        import ssl
+
+        if not os.path.exists(cfg.tls_cert) or not os.path.exists(cfg.tls_key):
+            log.error(
+                "tls_cert / tls_key configured but not found (%s, %s) — "
+                "falling back to HTTP",
+                cfg.tls_cert,
+                cfg.tls_key,
+            )
+        else:
+            ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+            ssl_context.load_cert_chain(cfg.tls_cert, cfg.tls_key)
+
+    scheme = "https" if ssl_context else "http"
     banner = (
         "\n"
         "  Dekate AutoBiometrik\n"
         "  BPJS biometric bridge (FRISTA / fingerprint)\n"
         f"  by Dekate — https://github.com/dekate/autobiometrik\n"
-        f"  listening on http://{cfg.host}:{cfg.port}\n"
+        f"  listening on {scheme}://{cfg.host}:{cfg.port}\n"
         f"  AutoItX available: {AUTOIT_AVAILABLE} | credentials set: {cfg.has_credentials}\n"
     )
     print(banner)
@@ -135,7 +154,7 @@ def main() -> None:
         )
 
     # threaded=True so a slow /run_* dispatch never blocks /stop_*.
-    app.run(host=cfg.host, port=cfg.port, threaded=True)
+    app.run(host=cfg.host, port=cfg.port, threaded=True, ssl_context=ssl_context)
 
 
 if __name__ == "__main__":
