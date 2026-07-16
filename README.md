@@ -1,4 +1,13 @@
+<div align="center">
 # AutoBiometrik BPJS by Dekate
+
+[![Latest release](https://img.shields.io/github/v/release/dekate/autobiometrik?label=latest&color=4c1)](https://github.com/dekate/autobiometrik/releases/latest)
+[![Installs](https://img.shields.io/github/downloads/dekate/autobiometrik/total?label=installs&color=4c1)](https://github.com/dekate/autobiometrik/releases)
+[![Platform](https://img.shields.io/badge/platform-Windows%2010%2B-0078d4)](https://github.com/dekate/autobiometrik/releases/latest)
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/G4I123ATGC) 
+[![Trakteer](https://img.shields.io/badge/Trakteer-Dukung%20Saya-be1e2d?style=for-the-badge)](https://trakteer.id/dekate)
+
+</div>
 
 Service HTTP lokal kecil yang jadi jembatan antara sistem **antrean/kiosk**
 rumah sakit (berbasis web) dengan dua aplikasi desktop biometrik BPJS
@@ -24,7 +33,7 @@ mengaksesnya langsung. Service ini yang jadi perantaranya: server
 menyediakan beberapa endpoint HTTP yang bisa dipanggil dari web kiosk.
 
 ```
-┌─────────────┐   HTTP GET /run_exe?no_peserta=0001xxxx    ┌──────────────────────┐
+┌─────────────┐  HTTP GET /start_frista?no_peserta=0001xxxx ┌──────────────────────┐
 │  Web kiosk  │ ─────────────────────────────────────────► │  AutoBiometrik BPJS  │
 │  (browser)  │                                            │    (service ini)     │
 └─────────────┘                                            └──────────┬───────────┘
@@ -40,21 +49,21 @@ halaman kiosk dari origin mana pun bisa memanggilnya.
 
 | Endpoint | Query | Fungsi |
 |---|---|---|
-| `/run_exe` | `no_peserta` | Buka FRISTA (wajah) dan login pakai kredensial dari config |
-| `/run_finger_exec` | `no_peserta` | Buka aplikasi sidik jari, login (kalau kredensialnya diisi), lalu ketikkan nomor BPJS |
-| `/stop_exec` | — | Tutup FRISTA |
-| `/stop_finger_exec` | — | Tutup aplikasi sidik jari |
+| `/start_frista` | `no_peserta` | Buka FRISTA (wajah) dan login pakai kredensial dari config |
+| `/start_finger` | `no_peserta` | Buka aplikasi sidik jari, login (kalau kredensialnya diisi), lalu ketikkan nomor BPJS |
+| `/stop_frista` | — | Tutup FRISTA |
+| `/stop_finger` | — | Tutup aplikasi sidik jari |
 | `/health` | — | Cek service hidup + status AutoItX dan kredensial |
 
-Otomasinya jalan di background thread, jadi `/run_*` langsung membalas
+Otomasinya jalan di background thread, jadi `/start_*` langsung membalas
 `{"status": "running", ...}` tanpa menunggu aplikasinya selesai terbuka.
-Kalau parameter `no_peserta` tidak dikirim, endpoint `/run_*` membalas
+Kalau parameter `no_peserta` tidak dikirim, endpoint `/start_*` membalas
 HTTP 400 dengan `{"status": "error", ...}`.
 
 Contoh:
 
 ```bash
-curl "http://127.0.0.1:5000/run_exe?no_peserta=0001234567890"
+curl "http://127.0.0.1:5000/start_frista?no_peserta=0001234567890"
 # {"status":"running","target":"frista","no_peserta":"0001234567890"}
 
 curl "http://127.0.0.1:5000/health"
@@ -73,8 +82,8 @@ masuk **.gitignore** — jangan pernah di-commit.
 {
   "frista_path": "C:\\frista\\frista.exe",
   "finger_path": "C:\\Program Files (x86)\\BPJS Kesehatan\\Aplikasi Sidik Jari BPJS Kesehatan\\After.exe",
-  "username": "user-frista-anda",
-  "password": "password-frista-anda",
+  "frista_username": "user-frista-anda",
+  "frista_password": "password-frista-anda",
   "finger_username": "user-aplikasi-sidik-jari",
   "finger_password": "password-aplikasi-sidik-jari",
   "host": "127.0.0.1",
@@ -88,7 +97,7 @@ masuk **.gitignore** — jangan pernah di-commit.
 |---|---|
 | `frista_path` | Lokasi file FRISTA (.exe) |
 | `finger_path` | Lokasi aplikasi sidik jari (`After.exe`) |
-| `username` / `password` | Akun login **FRISTA**, akan diketikkan otomatis ke jendela login-nya |
+| `frista_username` / `frista_password` | Akun login **FRISTA**, akan diketikkan otomatis ke jendela login-nya |
 | `finger_username` / `finger_password` | Akun login **aplikasi sidik jari** (akunnya beda dengan FRISTA). Kalau dikosongkan, langkah login di-skip — aplikasinya dianggap sudah login |
 | `host` / `port` | Alamat tempat server HTTP listen (default `127.0.0.1:5000`) |
 | `tls_cert` / `tls_key` | Lokasi file sertifikat + private key; kalau dua-duanya diisi, server otomatis jalan pakai HTTPS (lihat bagian HTTPS di bawah) |
@@ -132,10 +141,10 @@ verifikasi:
 const BRIDGE = 'http://127.0.0.1:5000' // atau URL HTTPS kamu — lihat di bawah
 
 // Verifikasi wajah
-await fetch(`${BRIDGE}/run_exe?no_peserta=${encodeURIComponent(noBpjs)}`)
+await fetch(`${BRIDGE}/start_frista?no_peserta=${encodeURIComponent(noBpjs)}`)
 
 // Sidik jari
-await fetch(`${BRIDGE}/run_finger_exec?no_peserta=${encodeURIComponent(noBpjs)}`)
+await fetch(`${BRIDGE}/start_finger?no_peserta=${encodeURIComponent(noBpjs)}`)
 ```
 
 ## Kalau web kiosk-nya pakai HTTPS
