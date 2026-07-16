@@ -5,7 +5,7 @@
 [![Latest release](https://img.shields.io/github/v/release/dekate/autobiometrik?label=latest&color=4c1)](https://github.com/dekate/autobiometrik/releases/latest)
 [![Installs](https://img.shields.io/github/downloads/dekate/autobiometrik/total?label=installs&color=4c1)](https://github.com/dekate/autobiometrik/releases)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%2B-0078d4)](https://github.com/dekate/autobiometrik/releases/latest)
-[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/G4I123ATGC) 
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/dekate) 
 [![Trakteer](https://img.shields.io/badge/Trakteer-Dukung%20Saya-be1e2d?style=for-the-badge)](https://trakteer.id/dekate)
 
 </div>
