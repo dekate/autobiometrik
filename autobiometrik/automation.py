@@ -119,13 +119,23 @@ def launch_frista(no_peserta: str, cfg: Config) -> None:
     _set_block_input(True)
     try:
         if cfg.has_credentials:
+            # FRISTA's login controls don't respond reliably to per-control
+            # sends: a send aimed at the password control leaks back into the
+            # username field, so both values end up concatenated in Username.
+            # Drive it by keyboard instead — focus the username field, TAB to
+            # the password field, then TAB to the Login button and press it
+            # with SPACE. The form does not submit on ENTER, and the button is
+            # a custom control that control_click can't hit, so keyboard
+            # activation is the reliable path. Raw mode (1) keeps password
+            # symbols from being read as AutoIt key macros.
             autoit.control_focus(login, ui.username_ctrl)
-            autoit.control_send(login, ui.username_ctrl, cfg.username)
-            autoit.control_focus(login, ui.password_ctrl)
-            autoit.control_send(login, ui.password_ctrl, cfg.password)
+            autoit.send(cfg.username, 1)
+            autoit.send("{TAB}")
+            autoit.send(cfg.password, 1)
+            autoit.send("{TAB}")
+            autoit.send("{SPACE}")
         else:
             log.warning("no FRISTA credentials configured; leaving login blank")
-        autoit.control_click(login, ui.login_button)
     finally:
         _set_block_input(False)
 
