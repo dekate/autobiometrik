@@ -75,6 +75,9 @@ FINGER_UI = FingerUi()
 
 # How long to wait for a window to appear before giving up (seconds).
 WINDOW_TIMEOUT = 30
+# How long to wait for an existing window to take focus (seconds). Shorter than
+# WINDOW_TIMEOUT: the window is already up, only focus has to land.
+ACTIVATE_TIMEOUT = 5
 
 
 def _require_autoit() -> None:
@@ -83,6 +86,27 @@ def _require_autoit() -> None:
             "AutoItX is not available on this machine "
             f"({_IMPORT_ERROR!r}). Install on Windows with: pip install PyAutoIt"
         )
+
+
+def _win_exists(selector: str) -> bool:
+    """Whether a window matching ``selector`` is currently open.
+
+    This is the login probe. Both BPJS apps show their login screen on every
+    fresh launch, so a window that exists is one somebody already logged in.
+    Asking the live desktop each time (rather than remembering what we
+    launched) keeps us right when an operator opens or closes an app by hand.
+    """
+    return bool(autoit.win_exists(selector))
+
+
+def _focus(selector: str) -> None:
+    """Bring a window to the front and confirm it has focus.
+
+    Keystrokes go wherever focus happens to be, so never send without this.
+    """
+    autoit.win_activate(selector)
+    if not autoit.win_wait_active(selector, ACTIVATE_TIMEOUT):
+        raise TimeoutError(f"window did not take focus: {selector!r}")
 
 
 def _set_block_input(block: bool) -> None:
@@ -148,37 +172,50 @@ def launch_frista(no_peserta: str, cfg: Config) -> None:
 
 
 def launch_finger(no_peserta: str, cfg: Config) -> None:
-    """Launch the fingerprint app and type the BPJS number into it."""
+    """Send the BPJS number to the fingerprint app, launching it if needed.
+
+    A fresh instance always opens at its login screen, so an existing window
+    means the app is already logged in and only needs the number. Both apps
+    allow multiple instances: relaunching blindly would spawn a duplicate and
+    type the username into the registration field.
+    """
     _require_autoit()
     ui = FINGER_UI
-
-    log.info("launching fingerprint app for no_peserta=%s", no_peserta)
-    autoit.run(cfg.finger_path)
-
     window = f"[TITLE:{ui.title}]"
-    if not autoit.win_wait_active(window, WINDOW_TIMEOUT):
-        raise TimeoutError(f"Fingerprint window did not appear: {ui.title!r}")
 
-    autoit.win_activate(window)
+    fresh = not _win_exists(window)
+    if fresh:
+        log.info("fingerprint app not running; launching for no_peserta=%s", no_peserta)
+        autoit.run(cfg.finger_path)
+        if not autoit.win_wait(window, WINDOW_TIMEOUT):
+            raise TimeoutError(f"Fingerprint window did not appear: {ui.title!r}")
+    else:
+        log.info(
+            "fingerprint app already running; reusing window for no_peserta=%s",
+            no_peserta,
+        )
+
+    _focus(window)
     autoit.win_set_on_top(window, "", 1)
     _set_block_input(True)
     try:
-        if cfg.has_finger_credentials:
-            # Login form comes up first (same window title), username field
-            # focused. Raw mode (1) so symbols in the password aren't
-            # interpreted as AutoIt key macros.
+        if fresh:
+            if not cfg.has_finger_credentials:
+                log.warning(
+                    "fingerprint app is at the login screen and no credentials "
+                    "are configured; not sending the number (it would land in "
+                    "the username field)"
+                )
+                return
+            # Login form, username field focused. Raw mode (1) so symbols in
+            # the password aren't interpreted as AutoIt key macros.
             autoit.send(cfg.finger_username, 1)
             autoit.send("{TAB}")
             autoit.send(cfg.finger_password, 1)
             autoit.send("{ENTER}")
             time.sleep(ui.login_settle)
-        else:
-            log.warning(
-                "no fingerprint credentials configured; assuming the app "
-                "is already logged in"
-            )
-        # The registration field is focused; send the number, then advance
-        # with TAB/SPACE as the app expects.
+        # The registration field clears itself after each entry, so the number
+        # can go straight in. Then advance with TAB/SPACE as the app expects.
         autoit.send(str(no_peserta))
         time.sleep(0.2)
         autoit.send("{TAB}")
