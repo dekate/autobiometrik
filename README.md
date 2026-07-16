@@ -50,11 +50,18 @@ halaman kiosk dari origin mana pun bisa memanggilnya.
 
 | Endpoint | Query | Fungsi |
 |---|---|---|
-| `/start_frista` | `no_peserta` | Buka FRISTA (wajah) dan login pakai kredensial dari config |
-| `/start_finger` | `no_peserta` | Buka aplikasi sidik jari, login (kalau kredensialnya diisi), lalu ketikkan nomor BPJS |
+| `/start_frista` | `no_peserta` | Kalau FRISTA belum jalan: buka dan login. Lalu ketikkan nomor BPJS ke kolom No. BPJS Kesehatan/NIK. Tombol Ambil Foto tetap ditekan operator |
+| `/start_finger` | `no_peserta` | Kalau aplikasi sidik jari belum jalan: buka, login, lalu ketikkan nomor BPJS. Kalau sudah jalan: pakai jendela yang ada dan ketikkan nomornya saja |
 | `/stop_frista` | — | Tutup FRISTA |
 | `/stop_finger` | — | Tutup aplikasi sidik jari |
 | `/health` | — | Cek service hidup + status AutoItX dan kredensial |
+
+`/start_*` menganggap aplikasi yang sudah jalan berarti sudah login — setiap
+instance baru selalu mulai dari layar login, jadi jendela yang terbuka pasti
+sudah dilewati login-nya. Kalau ternyata aplikasinya nyangkut di layar login
+(misalnya dibuka manual operator, atau kredensialnya salah), nomor BPJS bisa
+ketik ke kolom username. Panggil `/stop_finger` dulu, lalu `/start_finger`
+lagi — aplikasinya bakal dibuka ulang dari nol dan login otomatis.
 
 Otomasinya jalan di background thread, jadi `/start_*` langsung membalas
 `{"status": "running", ...}` tanpa menunggu aplikasinya selesai terbuka.
