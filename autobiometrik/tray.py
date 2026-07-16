@@ -9,8 +9,8 @@ server is the Quit item.
 from __future__ import annotations
 
 import logging
-import os
 import socket
+import subprocess
 import sys
 import webbrowser
 
@@ -70,28 +70,38 @@ def open_health(cfg: Config) -> None:
         log.error("failed to open health page %s: %s", url, exc)
 
 
-def _open_in_editor(path) -> None:
-    """Open a file in the OS default editor (guarded; never raises)."""
+def _edit_text_file(path) -> None:
+    """Open a text file in an editor (guarded; never raises).
+
+    On Windows we launch Notepad explicitly rather than os.startfile: types
+    like .json/.log often have no file association, and os.startfile then
+    returns success without opening anything (silent no-op). Notepad always
+    exists and handles both. Other platforms use the default handler.
+    """
+    path = str(path)
+    if sys.platform == "win32":
+        try:
+            subprocess.Popen(["notepad.exe", path])
+        except Exception as exc:  # noqa: BLE001
+            log.error("failed to open %s in notepad: %s", path, exc)
+        return
     try:
-        os.startfile(str(path))  # type: ignore[attr-defined]  # Windows only
-    except AttributeError:
-        # Non-Windows dev fallback.
         webbrowser.open(f"file://{path}")
     except Exception as exc:  # noqa: BLE001
         log.error("failed to open %s: %s", path, exc)
 
 
 def open_logs(log_file) -> None:
-    """Open the log file in the default editor."""
-    _open_in_editor(log_file)
+    """Open the log file in an editor."""
+    _edit_text_file(log_file)
 
 
 def open_config(cfg: Config) -> None:
-    """Open the active config.json in the default editor."""
+    """Open the active config.json in an editor."""
     if not cfg.source_path:
         log.error("no config file path known — cannot open config")
         return
-    _open_in_editor(cfg.source_path)
+    _edit_text_file(cfg.source_path)
 
 
 def do_reload(cfg: Config, icon=None) -> None:

@@ -51,11 +51,28 @@ def test_status_text_not_running():
         assert "Not responding" in tray.status_text(cfg)
 
 
-def test_open_config_opens_source_path():
+def test_open_config_opens_source_path_in_editor():
     cfg = Config(source_path="C:/x/config.json")
-    with mock.patch("autobiometrik.tray.os.startfile", create=True) as m:
+    with mock.patch("autobiometrik.tray.sys.platform", "win32"), mock.patch(
+        "autobiometrik.tray.subprocess.Popen"
+    ) as m:
         tray.open_config(cfg)
-    m.assert_called_once_with("C:/x/config.json")
+    m.assert_called_once_with(["notepad.exe", "C:/x/config.json"])
+
+
+def test_open_config_noop_without_source_path():
+    cfg = Config(source_path=None)
+    with mock.patch("autobiometrik.tray.subprocess.Popen") as m:
+        tray.open_config(cfg)
+    m.assert_not_called()
+
+
+def test_open_logs_opens_in_editor():
+    with mock.patch("autobiometrik.tray.sys.platform", "win32"), mock.patch(
+        "autobiometrik.tray.subprocess.Popen"
+    ) as m:
+        tray.open_logs("C:/x/autobiometrik.log")
+    m.assert_called_once_with(["notepad.exe", "C:/x/autobiometrik.log"])
 
 
 def test_do_reload_calls_reload_config():
