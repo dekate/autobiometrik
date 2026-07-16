@@ -1,4 +1,4 @@
-"""Entry point: ``python -m dekate_autobiometrik``."""
+"""Entry point: ``python -m autobiometrik``."""
 
 from .app import main
 

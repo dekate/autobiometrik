@@ -4,8 +4,9 @@ This drives two Windows desktop programs through AutoIt (PyAutoIt / AutoItX):
 
 * **FRISTA** (face recognition) — launched, then the login window is filled with
   the operator's credentials from ``config.json`` and submitted.
-* **Fingerprint** ("After.exe") — launched, then the patient's BPJS number is
-  typed into the registration window.
+* **Fingerprint** ("After.exe") — launched, logged in with its own credentials
+  (``finger_username`` / ``finger_password`` — a separate account from FRISTA),
+  then the patient's BPJS number is typed into the registration window.
 
 The window titles and control ids below target the BPJS apps as shipped at the
 time of writing (FRISTA 3.0.x). If BPJS updates those apps and the controls move,
@@ -57,7 +58,16 @@ class FristaUi:
 
 @dataclass(frozen=True)
 class FingerUi:
+    # The login and registration screens share this window title; the login
+    # form is what appears first after launch, with the username field focused.
+    # The app is WPF (window class "HwndWrapper[After.exe;;<guid>]"), so its
+    # fields are not Win32 controls — control_send/control_click can't target
+    # them and everything must go through focus + keyboard sends. Match the
+    # window by title only: the guid in the class changes between builds.
     title: str = "Aplikasi Registrasi Sidik Jari"
+    # Seconds to let the app process the login before the registration form
+    # is ready to receive the BPJS number.
+    login_settle: float = 2.0
 
 
 FRISTA_UI = FristaUi()
@@ -143,8 +153,22 @@ def launch_finger(no_peserta: str, cfg: Config) -> None:
     autoit.win_set_on_top(window, "", 1)
     _set_block_input(True)
     try:
-        # The registration field is focused on launch; send the number, then
-        # advance with TAB/SPACE as the app expects.
+        if cfg.has_finger_credentials:
+            # Login form comes up first (same window title), username field
+            # focused. Raw mode (1) so symbols in the password aren't
+            # interpreted as AutoIt key macros.
+            autoit.send(cfg.finger_username, 1)
+            autoit.send("{TAB}")
+            autoit.send(cfg.finger_password, 1)
+            autoit.send("{ENTER}")
+            time.sleep(ui.login_settle)
+        else:
+            log.warning(
+                "no fingerprint credentials configured; assuming the app "
+                "is already logged in"
+            )
+        # The registration field is focused; send the number, then advance
+        # with TAB/SPACE as the app expects.
         autoit.send(str(no_peserta))
         time.sleep(0.2)
         autoit.send("{TAB}")
