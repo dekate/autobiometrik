@@ -1,0 +1,69 @@
+name: Release
+
+# Tag-driven releases: bump __version__, commit, then
+#   git tag v1.0.0 && git push origin v1.0.0
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write # required to create the GitHub Release
+
+jobs:
+  build-and-release:
+    # Must be Windows: PyAutoIt and pystray are Windows-only, and PyInstaller
+    # has to build the Windows .exe natively.
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Full history so --generate-notes can diff against the previous tag.
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Fail fast, before the slow build: a released binary must never report a
+      # different version in /health and the tray than the tag it ships under.
+      - name: Verify tag matches __version__
+        shell: bash
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          ver="$(sed -n 's/^__version__ *= *"\(.*\)"/\1/p' autobiometrik/__init__.py)"
+          echo "tag: $tag | __version__: $ver"
+          if [ "$tag" != "$ver" ]; then
+            echo "::error::Tag v$tag does not match autobiometrik/__init__.py __version__ ($ver). Bump __version__ or retag."
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller pytest
+
+      # Release gate: never ship a build whose tests fail.
+      - name: Run tests
+        run: python -m pytest tests -q
+
+      # The spec generates icon.ico from icon.png (via Pillow, which comes with
+      # pystray) and bundles AutoItX + the tray icon into a onefile exe.
+      - name: Build exe
+        run: pyinstaller autobiometrik-bpjs.spec --noconfirm
+
+      - name: Publish release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            dist/autobiometrik-bpjs.exe \
+            config.example.json \
+            README.md \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes
