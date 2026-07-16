@@ -92,3 +92,93 @@ def test_finger_raises_when_window_never_appears(fake_autoit, cfg):
 
     with pytest.raises(TimeoutError):
         automation.launch_finger("0001234567890", cfg)
+
+
+def only_main_open(fake):
+    """FRISTA is logged in: the main window matches, the login window does not.
+
+    The two selectors are unambiguous — only the main one is a REGEXPTITLE,
+    and only the login one contains "Login Frista".
+    """
+    fake.win_exists.side_effect = lambda sel, *a: 1 if "REGEXPTITLE" in sel else 0
+
+
+def only_login_open(fake):
+    """FRISTA is running but still sitting at its login screen."""
+    fake.win_exists.side_effect = lambda sel, *a: 1 if "Login Frista" in sel else 0
+
+
+def test_frista_already_logged_in_skips_launch_and_login(fake_autoit, cfg):
+    only_main_open(fake_autoit)
+
+    automation.launch_frista("0001234567890", cfg)
+
+    fake_autoit.run.assert_not_called()
+    assert "u" not in sent(fake_autoit), "credentials must not be retyped"
+    assert "p" not in sent(fake_autoit)
+
+
+def test_frista_at_login_screen_logs_in_without_relaunching(fake_autoit, cfg):
+    only_login_open(fake_autoit)
+
+    automation.launch_frista("0001234567890", cfg)
+
+    fake_autoit.run.assert_not_called()
+    assert sent(fake_autoit) == [
+        "u", "{TAB}", "p", "{TAB}", "{SPACE}",
+        "{END}", "+{HOME}", "0001234567890",
+    ]
+
+
+def test_frista_launches_when_not_running(fake_autoit, cfg):
+    fake_autoit.win_exists.return_value = 0
+
+    automation.launch_frista("0001234567890", cfg)
+
+    fake_autoit.run.assert_called_once_with(cfg.frista_path)
+
+
+def test_frista_types_the_number_into_the_nik_field(fake_autoit, cfg):
+    only_main_open(fake_autoit)
+
+    automation.launch_frista("0001234567890", cfg)
+
+    focused = fake_autoit.control_focus.call_args_list[-1]
+    assert focused.args[1] == automation.FRISTA_UI.nik_ctrl
+    assert sent(fake_autoit) == ["{END}", "+{HOME}", "0001234567890"]
+
+
+def test_frista_never_presses_ambil_foto(fake_autoit, cfg):
+    only_main_open(fake_autoit)
+
+    automation.launch_frista("0001234567890", cfg)
+
+    # The operator presses it once the face is framed; firing it here would
+    # capture a bad frame.
+    fake_autoit.control_click.assert_not_called()
+    assert "{ENTER}" not in sent(fake_autoit)
+
+
+def test_frista_without_credentials_does_not_send_the_number(fake_autoit):
+    fake_autoit.win_exists.return_value = 0
+
+    automation.launch_frista("0001234567890", Config())
+
+    assert "0001234567890" not in sent(fake_autoit)
+
+
+def test_frista_raises_when_login_window_never_appears(fake_autoit, cfg):
+    fake_autoit.win_exists.return_value = 0
+    fake_autoit.win_wait.return_value = 0
+
+    with pytest.raises(TimeoutError):
+        automation.launch_frista("0001234567890", cfg)
+
+
+def test_frista_raises_when_main_window_never_appears(fake_autoit, cfg):
+    fake_autoit.win_exists.return_value = 0
+    # The login window shows up, but the main window never follows.
+    fake_autoit.win_wait.side_effect = lambda sel, *a: 0 if "REGEXPTITLE" in sel else 1
+
+    with pytest.raises(TimeoutError):
+        automation.launch_frista("0001234567890", cfg)

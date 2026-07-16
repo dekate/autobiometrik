@@ -49,11 +49,20 @@ class AutomationUnavailable(RuntimeError):
 @dataclass(frozen=True)
 class FristaUi:
     login_title: str = "Login Frista (Face Recognition BPJS Kesehatan)"
-    main_title: str = "Frista (Face Recognition BPJS Kesehatan) 3.0.2"
+    # frista.exe builds its main title as
+    #   "Frista (Face Recognition BPJS Kesehatan) {0}".format(version)
+    # so pinning a version breaks on the next BPJS release — and the code only
+    # ever warned when the main window went missing, so it would break quietly.
+    # Match an anchored prefix instead. "Login Frista (...)" does not match the
+    # anchor, which matters because both windows share the class TkTopLevel and
+    # the title is the only thing that tells them apart.
+    main_regex: str = r"^Frista \(Face Recognition BPJS Kesehatan\)"
     username_ctrl: str = "TkChild3"
     password_ctrl: str = "TkChild4"
     login_button: str = "Button1"
-    main_ctrl: str = "TkChild2"
+    # The "No. BPJS Kesehatan/NIK" entry on the main window — AutoIt Window
+    # Info reports class TkChild, instance 1.
+    nik_ctrl: str = "TkChild1"
 
 
 @dataclass(frozen=True)
@@ -124,25 +133,47 @@ def _set_block_input(block: bool) -> None:
 
 
 def launch_frista(no_peserta: str, cfg: Config) -> None:
-    """Launch FRISTA and log in, then hand the app the BPJS number.
+    """Get FRISTA logged in and put the BPJS number in its search field.
+
+    Unlike the fingerprint app, FRISTA needs no inference about its login
+    state: its login and main windows carry different titles, so the live
+    state is directly readable.
+
+    The number is typed but never submitted. FRISTA's "Ambil Foto" button is
+    gated on the operator seeing the face detected with a blue box; pressing
+    it here would capture the frame too early.
 
     Raises :class:`AutomationUnavailable` if AutoItX is missing, or
-    :class:`TimeoutError` if a window never appears.
+    :class:`TimeoutError` if a window never appears or never takes focus.
     """
     _require_autoit()
     ui = FRISTA_UI
-
-    log.info("launching FRISTA for no_peserta=%s", no_peserta)
-    autoit.run(cfg.frista_path)
-
+    main = f"[REGEXPTITLE:{ui.main_regex}]"
     login = f"[TITLE:{ui.login_title}]"
-    if not autoit.win_wait(login, WINDOW_TIMEOUT):
-        raise TimeoutError(f"FRISTA login window did not appear: {ui.login_title!r}")
 
-    autoit.win_activate(login)
-    _set_block_input(True)
-    try:
-        if cfg.has_credentials:
+    if _win_exists(main):
+        log.info("FRISTA already logged in; reusing window for no_peserta=%s", no_peserta)
+    else:
+        if _win_exists(login):
+            log.info("FRISTA already at login screen for no_peserta=%s", no_peserta)
+        else:
+            log.info("FRISTA not running; launching for no_peserta=%s", no_peserta)
+            autoit.run(cfg.frista_path)
+            if not autoit.win_wait(login, WINDOW_TIMEOUT):
+                raise TimeoutError(
+                    f"FRISTA login window did not appear: {ui.login_title!r}"
+                )
+
+        if not cfg.has_credentials:
+            log.warning(
+                "no FRISTA credentials configured; leaving the login window "
+                "for the operator and not sending the number"
+            )
+            return
+
+        _focus(login)
+        _set_block_input(True)
+        try:
             # FRISTA's login controls don't respond reliably to per-control
             # sends: a send aimed at the password control leaks back into the
             # username field, so both values end up concatenated in Username.
@@ -158,17 +189,26 @@ def launch_frista(no_peserta: str, cfg: Config) -> None:
             autoit.send(cfg.frista_password, 1)
             autoit.send("{TAB}")
             autoit.send("{SPACE}")
-        else:
-            log.warning("no FRISTA credentials configured; leaving login blank")
+        finally:
+            _set_block_input(False)
+
+        if not autoit.win_wait(main, WINDOW_TIMEOUT):
+            raise TimeoutError("FRISTA main window did not appear after login")
+
+    _focus(main)
+    _set_block_input(True)
+    try:
+        autoit.control_focus(main, ui.nik_ctrl)
+        # FRISTA is Tkinter: Ctrl+A moves to the start of the line rather than
+        # selecting all, so END then shift+HOME is what selects a leftover
+        # value for the number to replace. No-op on an empty field.
+        autoit.send("{END}")
+        autoit.send("+{HOME}")
+        autoit.send(str(no_peserta), 1)
     finally:
         _set_block_input(False)
 
-    # Wait for the main window so the operator sees the app is ready.
-    main = f"[TITLE:{ui.main_title}]"
-    if not autoit.win_wait(main, WINDOW_TIMEOUT):
-        log.warning("FRISTA main window not detected within timeout")
-
-    log.info("FRISTA ready for no_peserta=%s", no_peserta)
+    log.info("FRISTA ready with no_peserta=%s", no_peserta)
 
 
 def launch_finger(no_peserta: str, cfg: Config) -> None:
