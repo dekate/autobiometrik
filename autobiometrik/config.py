@@ -43,9 +43,10 @@ class Config:
     frista_username: str = ""
     frista_password: str = ""
     # Fingerprint app login credentials — a separate account from FRISTA.
-    # When set, the fingerprint launch logs in first before sending the
-    # BPJS number; when empty, the login step is skipped (app assumed to be
-    # already logged in).
+    # Only used when the app is not already running: an existing window means
+    # it is already logged in and needs nothing but the BPJS number. When the
+    # app must be launched and these are empty, it stops at the login screen
+    # and the number is not sent.
     finger_username: str = ""
     finger_password: str = ""
     # Server bind

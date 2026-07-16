@@ -2,11 +2,19 @@
 
 This drives two Windows desktop programs through AutoIt (PyAutoIt / AutoItX):
 
-* **FRISTA** (face recognition) — launched, then the login window is filled with
-  the operator's credentials from ``config.json`` and submitted.
+* **FRISTA** (face recognition) — launched and logged in with the operator's
+  credentials from ``config.json``, then the patient's BPJS number is typed
+  into its "No. BPJS Kesehatan/NIK" field. Its login and main windows have
+  different titles, so an already-running instance is detected and reused
+  rather than relaunched. The number is never submitted: the "Ambil Foto"
+  button is the operator's to press, once they see the face detected.
 * **Fingerprint** ("After.exe") — launched, logged in with its own credentials
   (``finger_username`` / ``finger_password`` — a separate account from FRISTA),
-  then the patient's BPJS number is typed into the registration window.
+  then the patient's BPJS number is typed into the registration window. Its
+  title is identical before and after login, so an existing window is taken to
+  mean "already logged in": every fresh instance opens at the login screen, so
+  a window that is up is one somebody already got past it. Both apps allow
+  multiple instances, so relaunching blindly would spawn duplicates.
 
 The window titles and control ids below target the BPJS apps as shipped at the
 time of writing (FRISTA 3.0.x). If BPJS updates those apps and the controls move,
