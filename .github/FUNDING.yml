@@ -1,0 +1,7 @@
+# Adds the "Sponsor" button to the repo page.
+# Ko-fi is a first-class provider; Trakteer is not on GitHub's supported list,
+# so it goes under `custom` (which accepts up to 4 URLs).
+
+ko_fi: G4I123ATGC
+custom:
+  - https://trakteer.id/dekate
