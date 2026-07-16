@@ -1,4 +1,5 @@
 <div align="center">
+
 # AutoBiometrik BPJS by Dekate
 
 [![Latest release](https://img.shields.io/github/v/release/dekate/autobiometrik?label=latest&color=4c1)](https://github.com/dekate/autobiometrik/releases/latest)
@@ -211,6 +212,9 @@ tidak ada private key yang perlu dibagikan ke mana-mana.
 - Kredensial tersimpan di `config.json` di kiosk dan tidak pernah dikirim
   ke mana pun oleh service ini; kiosk cuma mengirim nomor BPJS.
 - Dirancang untuk dipakai di perangkat kiosk yang dikelola rumah sakit.
+
+Nemu celah keamanan? Jangan buka issue publik — laporkan lewat tab **Security**
+repo ini. Detailnya ada di [SECURITY.md](.github/SECURITY.md).
 
 ## Testing
 
