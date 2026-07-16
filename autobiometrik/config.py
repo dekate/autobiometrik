@@ -164,3 +164,34 @@ def load_config(config_path: str | os.PathLike | None = None) -> Config:
 
     cfg.source_path = str(json_path)
     return cfg
+
+
+# Fields safe to refresh while the server is running. Bind-time settings
+# (host, port, tls_cert, tls_key) are deliberately excluded: the server is
+# already listening, so changing them needs a full restart, and overwriting
+# them at runtime would desync the live status probe.
+_RELOADABLE_FIELDS = (
+    "frista_path",
+    "finger_path",
+    "username",
+    "password",
+    "finger_username",
+    "finger_password",
+    "frista_api",
+    "camera_id",
+)
+
+
+def reload_config(cfg: Config) -> Config:
+    """Re-read the config file and update ``cfg`` in place.
+
+    Only runtime-mutable fields (credentials, executable paths, extras) are
+    refreshed; bind-time fields (host/port/TLS) are left as-is because the
+    running server cannot rebind without a restart. Mutating in place means
+    endpoints and the tray that already hold this ``cfg`` see the new values.
+    """
+    fresh = load_config(cfg.source_path)
+    for name in _RELOADABLE_FIELDS:
+        setattr(cfg, name, getattr(fresh, name))
+    log.info("config reloaded from %s", cfg.source_path)
+    return cfg

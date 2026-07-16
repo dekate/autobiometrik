@@ -18,7 +18,7 @@ import pystray
 from PIL import Image
 
 from . import paths
-from .config import Config
+from .config import Config, reload_config
 
 log = logging.getLogger("dekate.autobiometrik")
 
@@ -70,15 +70,38 @@ def open_health(cfg: Config) -> None:
         log.error("failed to open health page %s: %s", url, exc)
 
 
-def open_logs(log_file) -> None:
-    """Open the log file in the default editor (guarded)."""
+def _open_in_editor(path) -> None:
+    """Open a file in the OS default editor (guarded; never raises)."""
     try:
-        os.startfile(str(log_file))  # type: ignore[attr-defined]  # Windows only
+        os.startfile(str(path))  # type: ignore[attr-defined]  # Windows only
     except AttributeError:
         # Non-Windows dev fallback.
-        webbrowser.open(f"file://{log_file}")
+        webbrowser.open(f"file://{path}")
     except Exception as exc:  # noqa: BLE001
-        log.error("failed to open logs %s: %s", log_file, exc)
+        log.error("failed to open %s: %s", path, exc)
+
+
+def open_logs(log_file) -> None:
+    """Open the log file in the default editor."""
+    _open_in_editor(log_file)
+
+
+def open_config(cfg: Config) -> None:
+    """Open the active config.json in the default editor."""
+    if not cfg.source_path:
+        log.error("no config file path known — cannot open config")
+        return
+    _open_in_editor(cfg.source_path)
+
+
+def do_reload(cfg: Config, icon=None) -> None:
+    """Reload config from disk and (if given) notify via the tray icon."""
+    reload_config(cfg)
+    if icon is not None:
+        try:
+            icon.notify("Configuration reloaded", APP_TITLE)
+        except Exception as exc:  # noqa: BLE001 - notify is best-effort
+            log.debug("tray notify failed: %s", exc)
 
 
 def build_menu(cfg: Config, version: str, log_file, on_quit) -> pystray.Menu:
@@ -96,7 +119,10 @@ def build_menu(cfg: Config, version: str, log_file, on_quit) -> pystray.Menu:
         pystray.MenuItem(caps, noop, enabled=False),
         pystray.Menu.SEPARATOR,
         pystray.MenuItem("Open health page", lambda icon, item: open_health(cfg)),
+        pystray.MenuItem("Open config", lambda icon, item: open_config(cfg)),
         pystray.MenuItem("Open logs", lambda icon, item: open_logs(log_file)),
+        pystray.Menu.SEPARATOR,
+        pystray.MenuItem("Reload config", lambda icon, item: do_reload(cfg, icon)),
         pystray.Menu.SEPARATOR,
         pystray.MenuItem("Quit", on_quit),
     )

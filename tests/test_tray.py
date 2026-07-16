@@ -51,6 +51,37 @@ def test_status_text_not_running():
         assert "Not responding" in tray.status_text(cfg)
 
 
+def test_open_config_opens_source_path():
+    cfg = Config(source_path="C:/x/config.json")
+    with mock.patch("autobiometrik.tray.os.startfile", create=True) as m:
+        tray.open_config(cfg)
+    m.assert_called_once_with("C:/x/config.json")
+
+
+def test_do_reload_calls_reload_config():
+    cfg = Config()
+    with mock.patch("autobiometrik.tray.reload_config") as m:
+        tray.do_reload(cfg)
+    m.assert_called_once_with(cfg)
+
+
+def test_do_reload_notifies_icon_when_given():
+    cfg = Config()
+    icon = mock.MagicMock()
+    with mock.patch("autobiometrik.tray.reload_config"):
+        tray.do_reload(cfg, icon)
+    icon.notify.assert_called_once()
+
+
+def test_build_menu_has_config_actions():
+    cfg = Config(source_path="c.json")
+    with mock.patch("autobiometrik.tray.probe_health", return_value=True):
+        menu = tray.build_menu(cfg, "1.0.0", "log.txt", lambda icon, item: None)
+        texts = [item.text for item in menu.items]
+    assert "Open config" in texts
+    assert "Reload config" in texts
+
+
 def test_build_menu_has_expected_items():
     cfg = Config(username="u", password="p")
     quit_called = []
