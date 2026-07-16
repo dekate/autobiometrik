@@ -3,3 +3,5 @@ flask-cors>=4.0
 # Windows-only. AutoItX drives the BPJS desktop apps. The server still runs
 # without it (endpoints respond, automation is skipped) for dev on other OSes.
 PyAutoIt>=0.6; sys_platform == "win32"
+# Windows-only. System-tray icon (Pillow comes along for the icon image).
+pystray>=0.19; sys_platform == "win32"
