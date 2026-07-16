@@ -23,3 +23,6 @@ dist/
 .DS_Store
 Thumbs.db
 *.log
+
+# Generated from icon.png at build time
+autobiometrik/icon.ico
