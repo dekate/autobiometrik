@@ -10,7 +10,12 @@ from autobiometrik.config import Config
 @pytest.fixture
 def client():
     app = create_app(
-        Config(username="u", password="p", finger_username="fu", finger_password="fp")
+        Config(
+            frista_username="u",
+            frista_password="p",
+            finger_username="fu",
+            finger_password="fp",
+        )
     )
     app.config.update(TESTING=True)
     return app.test_client()
@@ -26,18 +31,18 @@ def test_health(client):
     assert "autoit" in body
 
 
-def test_run_exe_requires_no_peserta(client):
-    resp = client.get("/run_exe")
+def test_start_frista_requires_no_peserta(client):
+    resp = client.get("/start_frista")
     assert resp.status_code == 400
     assert resp.get_json()["status"] == "error"
 
 
-def test_run_finger_requires_no_peserta(client):
-    resp = client.get("/run_finger_exec")
+def test_start_finger_requires_no_peserta(client):
+    resp = client.get("/start_finger")
     assert resp.status_code == 400
 
 
-def test_run_exe_dispatches_launch_frista():
+def test_start_frista_dispatches_launch_frista():
     with mock.patch.object(automation, "launch_frista") as m:
         # patch the reference imported into app as well
         import autobiometrik.app as appmod
@@ -45,7 +50,7 @@ def test_run_exe_dispatches_launch_frista():
         with mock.patch.object(appmod, "launch_frista", m):
             app = create_app(Config())
             client = app.test_client()
-            resp = client.get("/run_exe?no_peserta=0001234567890")
+            resp = client.get("/start_frista?no_peserta=0001234567890")
             assert resp.status_code == 200
             body = resp.get_json()
             assert body["status"] == "running"
@@ -56,12 +61,18 @@ def test_run_exe_dispatches_launch_frista():
 
 def test_stop_endpoints(client):
     with mock.patch("autobiometrik.app.stop_process", return_value=True) as m:
-        resp = client.get("/stop_exec")
+        resp = client.get("/stop_frista")
         assert resp.status_code == 200
         assert resp.get_json()["was_running"] is True
-        resp = client.get("/stop_finger_exec")
+        resp = client.get("/stop_finger")
         assert resp.status_code == 200
     assert m.call_count == 2
+
+
+def test_old_endpoints_are_gone(client):
+    # Clean break: the pre-rename paths must no longer exist.
+    for path in ("/run_exe", "/run_finger_exec", "/stop_exec", "/stop_finger_exec"):
+        assert client.get(path).status_code == 404
 
 
 def test_setup_logging_writes_to_file(tmp_path):

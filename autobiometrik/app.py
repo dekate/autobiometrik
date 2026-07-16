@@ -5,13 +5,13 @@ these endpoints with a patient's BPJS number; this service launches the matching
 BPJS desktop app (FRISTA face recognition or the fingerprint app) and drives its
 login/registration via AutoIt.
 
-Endpoints (GET, kept compatible with earlier kiosk integrations):
+Endpoints (GET):
 
-    /run_exe?no_peserta=<bpjs>          launch + log in to FRISTA (face)
-    /run_finger_exec?no_peserta=<bpjs>  launch + send number to fingerprint app
-    /stop_exec                          terminate FRISTA
-    /stop_finger_exec                   terminate the fingerprint app
-    /health                             liveness + capability probe
+    /start_frista?no_peserta=<bpjs>  launch + log in to FRISTA (face)
+    /start_finger?no_peserta=<bpjs>  launch + send number to fingerprint app
+    /stop_frista                     terminate FRISTA
+    /stop_finger                     terminate the fingerprint app
+    /health                          liveness + capability probe
 
 Long-running desktop automation is dispatched on a background thread so the HTTP
 call returns immediately (the app appears on screen; the kiosk UI moves on).
@@ -116,8 +116,8 @@ def create_app(config: Config | None = None) -> Flask:
             }
         )
 
-    @app.get("/run_exe")
-    def run_exe():
+    @app.get("/start_frista")
+    def start_frista():
         """Launch FRISTA (face recognition) and log in — non-blocking."""
         no_peserta = request.args.get("no_peserta")
         if not no_peserta:
@@ -128,8 +128,8 @@ def create_app(config: Config | None = None) -> Flask:
             {"status": "running", "target": "frista", "no_peserta": no_peserta}
         )
 
-    @app.get("/run_finger_exec")
-    def run_finger_exec():
+    @app.get("/start_finger")
+    def start_finger():
         """Launch the fingerprint app and send the BPJS number — non-blocking."""
         no_peserta = request.args.get("no_peserta")
         if not no_peserta:
@@ -140,13 +140,13 @@ def create_app(config: Config | None = None) -> Flask:
             {"status": "running", "target": "finger", "no_peserta": no_peserta}
         )
 
-    @app.get("/stop_exec")
-    def stop_exec():
+    @app.get("/stop_frista")
+    def stop_frista():
         running = stop_process(FRISTA_IMAGE)
         return jsonify({"status": "ok", "target": "frista", "was_running": running})
 
-    @app.get("/stop_finger_exec")
-    def stop_finger_exec():
+    @app.get("/stop_finger")
+    def stop_finger():
         running = stop_process(FINGER_IMAGE)
         return jsonify({"status": "ok", "target": "finger", "was_running": running})
 

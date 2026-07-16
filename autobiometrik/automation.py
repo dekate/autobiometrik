@@ -129,9 +129,9 @@ def launch_frista(no_peserta: str, cfg: Config) -> None:
             # activation is the reliable path. Raw mode (1) keeps password
             # symbols from being read as AutoIt key macros.
             autoit.control_focus(login, ui.username_ctrl)
-            autoit.send(cfg.username, 1)
+            autoit.send(cfg.frista_username, 1)
             autoit.send("{TAB}")
-            autoit.send(cfg.password, 1)
+            autoit.send(cfg.frista_password, 1)
             autoit.send("{TAB}")
             autoit.send("{SPACE}")
         else:

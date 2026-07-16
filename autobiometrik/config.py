@@ -40,8 +40,8 @@ class Config:
     # Fingerprint desktop app (BPJS "After.exe")
     finger_path: str = DEFAULT_FINGER_PATH
     # FRISTA login credentials (typed into the app's login window)
-    username: str = ""
-    password: str = ""
+    frista_username: str = ""
+    frista_password: str = ""
     # Fingerprint app login credentials — a separate account from FRISTA.
     # When set, the fingerprint launch logs in first before sending the
     # BPJS number; when empty, the login step is skipped (app assumed to be
@@ -66,7 +66,7 @@ class Config:
 
     @property
     def has_credentials(self) -> bool:
-        return bool(self.username and self.password)
+        return bool(self.frista_username and self.frista_password)
 
     @property
     def has_finger_credentials(self) -> bool:
@@ -147,8 +147,8 @@ def load_config(config_path: str | os.PathLike | None = None) -> Config:
     # "path" / "pathfinger" keys from the original config.json.
     cfg.frista_path = data.get("frista_path") or data.get("path") or cfg.frista_path
     cfg.finger_path = data.get("finger_path") or data.get("pathfinger") or cfg.finger_path
-    cfg.username = data.get("username", cfg.username)
-    cfg.password = data.get("password", cfg.password)
+    cfg.frista_username = data.get("frista_username", cfg.frista_username)
+    cfg.frista_password = data.get("frista_password", cfg.frista_password)
     cfg.finger_username = data.get("finger_username", cfg.finger_username)
     cfg.finger_password = data.get("finger_password", cfg.finger_password)
     cfg.host = data.get("host", cfg.host)
@@ -173,8 +173,8 @@ def load_config(config_path: str | os.PathLike | None = None) -> Config:
 _RELOADABLE_FIELDS = (
     "frista_path",
     "finger_path",
-    "username",
-    "password",
+    "frista_username",
+    "frista_password",
     "finger_username",
     "finger_password",
     "frista_api",

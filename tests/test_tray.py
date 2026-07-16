@@ -100,7 +100,7 @@ def test_build_menu_has_config_actions():
 
 
 def test_build_menu_has_expected_items():
-    cfg = Config(username="u", password="p")
+    cfg = Config(frista_username="u", frista_password="p")
     quit_called = []
     with mock.patch("autobiometrik.tray.probe_health", return_value=True):
         menu = tray.build_menu(
