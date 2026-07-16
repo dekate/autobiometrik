@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 import os
+import socket
 import sys
 import webbrowser
 
@@ -37,6 +38,27 @@ def load_icon_image() -> Image.Image:
     except Exception as exc:  # noqa: BLE001 - never let the tray fail to appear
         log.warning("tray icon image unavailable (%s) — using fallback", exc)
         return Image.new("RGB", (64, 64), (13, 71, 161))
+
+
+def probe_health(cfg: Config, timeout: float = 1.0) -> bool:
+    """Return True if the local server is listening on its port.
+
+    A TCP connect is enough: the tray runs in the same process as the server,
+    so if the port accepts a connection the werkzeug thread is alive and
+    serving. A refused connection (instant) means it is down. No TLS handshake
+    is performed, so this works the same for HTTP and HTTPS.
+    """
+    host = "127.0.0.1" if cfg.host in ("0.0.0.0", "") else cfg.host
+    try:
+        with socket.create_connection((host, cfg.port), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
+def status_text(cfg: Config) -> str:
+    """Live status line for the tray menu, re-evaluated each time it opens."""
+    return "● Running" if probe_health(cfg) else "○ Not responding"
 
 
 def open_health(cfg: Config) -> None:
@@ -68,6 +90,8 @@ def build_menu(cfg: Config, version: str, log_file, on_quit) -> pystray.Menu:
     noop = lambda icon, item: None  # noqa: E731 - disabled info lines need a callable
     return pystray.Menu(
         pystray.MenuItem(f"{APP_TITLE} v{version}", noop, enabled=False),
+        # Live status — the callable is re-evaluated each time the menu opens.
+        pystray.MenuItem(lambda item: status_text(cfg), noop, enabled=False),
         pystray.MenuItem(f"{cfg.scheme}://{cfg.host}:{cfg.port}", noop, enabled=False),
         pystray.MenuItem(caps, noop, enabled=False),
         pystray.Menu.SEPARATOR,
