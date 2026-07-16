@@ -26,3 +26,6 @@ Thumbs.db
 
 # Generated from icon.png at build time
 autobiometrik/icon.ico
+
+# Design docs (specs/plans) — keep local, never commit
+docs/superpowers/
