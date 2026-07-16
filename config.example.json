@@ -3,6 +3,8 @@
   "finger_path": "C:\\Program Files (x86)\\BPJS Kesehatan\\Aplikasi Sidik Jari BPJS Kesehatan\\After.exe",
   "username": "",
   "password": "",
+  "finger_username": "",
+  "finger_password": "",
   "host": "127.0.0.1",
   "port": 5000,
   "tls_cert": "",
