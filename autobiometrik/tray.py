@@ -24,6 +24,8 @@ log = logging.getLogger("dekate.autobiometrik")
 
 APP_NAME = "autobiometrik-bpjs"
 APP_TITLE = "AutoBiometrik BPJS"
+VENDOR = "Dekate"
+VENDOR_URL = "https://dekate.id"
 
 
 def available() -> bool:
@@ -61,13 +63,22 @@ def status_text(cfg: Config) -> str:
     return "● Running" if probe_health(cfg) else "○ Not responding"
 
 
-def open_health(cfg: Config) -> None:
-    """Open the /health page in the default browser."""
-    url = f"{cfg.scheme}://{cfg.host}:{cfg.port}/health"
+def _open_url(url: str) -> None:
+    """Open a URL in the default browser (guarded; never raises)."""
     try:
         webbrowser.open(url)
-    except Exception as exc:  # noqa: BLE001
-        log.error("failed to open health page %s: %s", url, exc)
+    except Exception as exc:  # noqa: BLE001 - a menu click must not kill the tray
+        log.error("failed to open %s: %s", url, exc)
+
+
+def open_health(cfg: Config) -> None:
+    """Open the /health page in the default browser."""
+    _open_url(f"{cfg.scheme}://{cfg.host}:{cfg.port}/health")
+
+
+def open_vendor_site() -> None:
+    """Open the Dekate site — the title line doubles as the vendor link."""
+    _open_url(VENDOR_URL)
 
 
 def _edit_text_file(path) -> None:
@@ -122,7 +133,12 @@ def build_menu(cfg: Config, version: str, log_file, on_quit) -> pystray.Menu:
     )
     noop = lambda icon, item: None  # noqa: E731 - disabled info lines need a callable
     return pystray.Menu(
-        pystray.MenuItem(f"{APP_TITLE} v{version}", noop, enabled=False),
+        # The only enabled info line: it opens the Dekate site. The lines below
+        # it stay disabled so they read as status, not as things to click.
+        pystray.MenuItem(
+            f"{APP_TITLE} v{version} by {VENDOR}",
+            lambda icon, item: open_vendor_site(),
+        ),
         # Live status — the callable is re-evaluated each time the menu opens.
         pystray.MenuItem(lambda item: status_text(cfg), noop, enabled=False),
         pystray.MenuItem(f"{cfg.scheme}://{cfg.host}:{cfg.port}", noop, enabled=False),
@@ -143,7 +159,7 @@ def run(cfg: Config, version: str, log_file, on_quit) -> None:
     icon = pystray.Icon(
         APP_NAME,
         icon=load_icon_image(),
-        title=f"{APP_TITLE} v{version}",
+        title=f"{APP_TITLE} v{version} by {VENDOR}",
         menu=build_menu(cfg, version, log_file, on_quit),
     )
     icon.run()

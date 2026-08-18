@@ -121,8 +121,41 @@ def test_build_menu_info_lines_are_disabled():
     with mock.patch("autobiometrik.tray.probe_health", return_value=True):
         menu = tray.build_menu(cfg, "1.0.0", "log.txt", lambda icon, item: None)
         by_text = {item.text: item for item in menu.items}
-        version_line = next(item for item in menu.items if "1.0.0" in item.text)
         status_line = next(item for item in menu.items if "Running" in item.text)
-    assert version_line.enabled is False
+        url_line = next(item for item in menu.items if item.text == "http://127.0.0.1:5000")
+    # Status readouts only — clicking them must do nothing. The title line is
+    # the deliberate exception; see the vendor-link tests below.
     assert status_line.enabled is False
+    assert url_line.enabled is False
     assert by_text["Quit"].enabled is True
+
+
+def _title_item(menu):
+    return next(item for item in menu.items if item.text.startswith(tray.APP_TITLE))
+
+
+def test_build_menu_title_credits_the_vendor():
+    cfg = Config()
+    with mock.patch("autobiometrik.tray.probe_health", return_value=True):
+        menu = tray.build_menu(cfg, "1.0.0", "log.txt", lambda icon, item: None)
+    assert _title_item(menu).text == "AutoBiometrik BPJS v1.0.0 by Dekate"
+
+
+def test_build_menu_title_opens_the_vendor_site():
+    """The title line is clickable — it is the only enabled info line."""
+    cfg = Config()
+    with mock.patch("autobiometrik.tray.probe_health", return_value=True):
+        menu = tray.build_menu(cfg, "1.0.0", "log.txt", lambda icon, item: None)
+        title = _title_item(menu)
+        assert title.enabled is True
+        with mock.patch("autobiometrik.tray.webbrowser.open") as m:
+            title(mock.MagicMock())
+    m.assert_called_once_with("https://dekate.id")
+
+
+def test_open_vendor_site_survives_a_browser_failure():
+    """A failed menu click must never take the tray down with it."""
+    with mock.patch(
+        "autobiometrik.tray.webbrowser.open", side_effect=OSError("no browser")
+    ):
+        tray.open_vendor_site()  # must not raise
