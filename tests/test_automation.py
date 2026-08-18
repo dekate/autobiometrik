@@ -23,8 +23,21 @@ def cfg():
 
 @pytest.fixture
 def fake_autoit(monkeypatch):
-    """Stand in for the AutoItX binding, recording calls in order."""
-    fake = mock.MagicMock()
+    """Stand in for the AutoItX binding, recording calls in order.
+
+    Specced against the real module wherever it is installed, so a call with
+    the wrong arity fails here rather than at the kiosk. A bare MagicMock
+    swallows any signature, which is how ``win_set_on_top(title, "", 1)`` — an
+    argument list PyAutoIt has not accepted for years — reached production
+    green. Off Windows the module is missing and the spec is skipped; the
+    signature check then happens on the developer machine that has AutoItX.
+    """
+    try:
+        import autoit as real_autoit
+
+        fake = mock.create_autospec(real_autoit)
+    except Exception:  # noqa: BLE001 - not on Windows / AutoItX not installed
+        fake = mock.MagicMock()
     fake.win_exists.return_value = 0      # nothing running by default
     fake.win_wait.return_value = 1        # windows appear promptly
     fake.win_wait_active.return_value = 1
@@ -40,6 +53,63 @@ def fake_autoit(monkeypatch):
 def sent(fake):
     """The first positional arg of every autoit.send call, in order."""
     return [call.args[0] for call in fake.send.call_args_list]
+
+
+# The title bar text of a running BPJS fingerprint app (After.exe), read off
+# the real thing. Both its login screen and its registration screen carry it.
+# Pinned here because every other test stubs win_exists with a constant, which
+# would happily pass with a selector that matches no real window at all.
+REAL_FINGER_TITLE = "Aplikasi Verifikasi dan Registrasi Sidik Jari"
+
+
+def desktop(fake, *titles):
+    """Answer win_exists/win_wait against a desktop of real window titles.
+
+    AutoIt's default WinTitleMatchMode is "start with", so a ``[TITLE:x]``
+    selector matches any window whose title begins with ``x``.
+    """
+
+    def matches(selector, *_a):
+        prefix = selector[len("[TITLE:"):-1] if selector.startswith("[TITLE:") else selector
+        return int(any(title.startswith(prefix) for title in titles))
+
+    fake.win_exists.side_effect = matches
+    fake.win_wait.side_effect = matches
+
+
+def test_finger_selector_matches_the_real_window_title(fake_autoit, cfg):
+    """A running app must be recognised, or every request opens another copy."""
+    desktop(fake_autoit, REAL_FINGER_TITLE)
+
+    automation.launch_finger("0001234567890", cfg)
+
+    fake_autoit.run.assert_not_called()
+    assert "0001234567890" in sent(fake_autoit)
+
+
+def test_finger_waits_for_the_real_window_title_after_launching(fake_autoit, cfg):
+    """Nothing is running; the launched app must satisfy the wait, not time out."""
+    desktop(fake_autoit)  # empty desktop
+    fake_autoit.run.side_effect = lambda *_a: desktop(fake_autoit, REAL_FINGER_TITLE)
+
+    automation.launch_finger("0001234567890", cfg)
+
+    fake_autoit.run.assert_called_once_with(cfg.finger_path)
+    assert "0001234567890" in sent(fake_autoit)
+
+
+def test_finger_never_pins_the_window_on_top(fake_autoit, cfg):
+    """WS_EX_TOPMOST is a permanent style, not a one-shot raise.
+
+    Setting it left the app floating over the browser until it was restarted;
+    activating the window is enough for the keystrokes to land.
+    """
+    desktop(fake_autoit, REAL_FINGER_TITLE)
+
+    automation.launch_finger("0001234567890", cfg)
+
+    fake_autoit.win_set_on_top.assert_not_called()
+    fake_autoit.win_activate.assert_called()
 
 
 def test_finger_reuses_running_window_without_retyping_credentials(fake_autoit, cfg):

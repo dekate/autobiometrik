@@ -81,7 +81,13 @@ class FingerUi:
     # fields are not Win32 controls — control_send/control_click can't target
     # them and everything must go through focus + keyboard sends. Match the
     # window by title only: the guid in the class changes between builds.
-    title: str = "Aplikasi Registrasi Sidik Jari"
+    #
+    # This is the title bar text verbatim ("Verifikasi dan" included — leaving
+    # it out matched nothing, so every request launched another copy and then
+    # timed out waiting for a window under a name that does not exist). AutoIt
+    # matches [TITLE:] as "starts with" by default, so a version suffix in a
+    # future build would still match.
+    title: str = "Aplikasi Verifikasi dan Registrasi Sidik Jari"
     # Seconds to let the app process the login before the registration form
     # is ready to receive the BPJS number.
     login_settle: float = 2.0
@@ -243,8 +249,12 @@ def launch_finger(no_peserta: str, cfg: Config) -> None:
             no_peserta,
         )
 
+    # _focus raises and activates the window, which is all the keystrokes below
+    # need. Deliberately no win_set_on_top: that sets WS_EX_TOPMOST as a
+    # persistent window style, so the app floated above everything else on the
+    # desktop for the rest of its life and the operator could not put it behind
+    # the browser again without restarting it.
     _focus(window)
-    autoit.win_set_on_top(window, "", 1)
     _set_block_input(True)
     try:
         if fresh:
