@@ -75,7 +75,7 @@ curl "http://127.0.0.1:5000/start_frista?no_peserta=0001234567890"
 # {"status":"running","target":"frista","no_peserta":"0001234567890"}
 
 curl "http://127.0.0.1:5000/health"
-# {"status":"ok","service":"autobiometrik-bpjs","version":"1.0.0",
+# {"status":"ok","service":"autobiometrik-bpjs","version":"1.0.1",
 #  "autoit":true,"has_credentials":true,"has_finger_credentials":true,
 #  "scheme":"http"}
 ```
