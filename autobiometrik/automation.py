@@ -82,12 +82,14 @@ class FingerUi:
     # them and everything must go through focus + keyboard sends. Match the
     # window by title only: the guid in the class changes between builds.
     #
-    # This is the title bar text verbatim ("Verifikasi dan" included — leaving
-    # it out matched nothing, so every request launched another copy and then
-    # timed out waiting for a window under a name that does not exist). AutoIt
-    # matches [TITLE:] as "starts with" by default, so a version suffix in a
-    # future build would still match.
-    title: str = "Aplikasi Verifikasi dan Registrasi Sidik Jari"
+    # The title bar text differs between builds: v2.2 reads "Aplikasi
+    # Registrasi Sidik Jari" (its in-window header says "Verifikasi dan
+    # Registrasi"), other builds put "Verifikasi dan" in the title bar too.
+    # Pinning either one matches nothing on the other build, so every request
+    # launches another copy and then times out waiting for the window without
+    # ever typing the login. An anchored regex covers both; no end anchor so a
+    # version suffix in a future build still matches.
+    title_regex: str = r"^Aplikasi (Verifikasi dan )?Registrasi Sidik Jari"
     # Seconds to let the app process the login before the registration form
     # is ready to receive the BPJS number.
     login_settle: float = 2.0
@@ -235,14 +237,14 @@ def launch_finger(no_peserta: str, cfg: Config) -> None:
     """
     _require_autoit()
     ui = FINGER_UI
-    window = f"[TITLE:{ui.title}]"
+    window = f"[REGEXPTITLE:{ui.title_regex}]"
 
     fresh = not _win_exists(window)
     if fresh:
         log.info("fingerprint app not running; launching for no_peserta=%s", no_peserta)
         autoit.run(cfg.finger_path)
         if not autoit.win_wait(window, WINDOW_TIMEOUT):
-            raise TimeoutError(f"Fingerprint window did not appear: {ui.title!r}")
+            raise TimeoutError(f"Fingerprint window did not appear: {ui.title_regex!r}")
     else:
         log.info(
             "fingerprint app already running; reusing window for no_peserta=%s",

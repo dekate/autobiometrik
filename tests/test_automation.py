@@ -4,6 +4,8 @@ The real AutoItX is never called here — `autoit` is replaced with a mock that
 records every call, so these run on any platform.
 """
 
+import re
+
 import pytest
 from unittest import mock
 
@@ -55,21 +57,31 @@ def sent(fake):
     return [call.args[0] for call in fake.send.call_args_list]
 
 
-# The title bar text of a running BPJS fingerprint app (After.exe), read off
-# the real thing. Both its login screen and its registration screen carry it.
+# Title bar texts of running BPJS fingerprint apps (After.exe), read off the
+# real thing. Both the login and registration screens carry the title. The
+# text differs by build — v2.2 drops "Verifikasi dan" from the title bar
+# (keeping it only in the in-window header) — so both must match.
 # Pinned here because every other test stubs win_exists with a constant, which
 # would happily pass with a selector that matches no real window at all.
-REAL_FINGER_TITLE = "Aplikasi Verifikasi dan Registrasi Sidik Jari"
+REAL_FINGER_TITLES = [
+    "Aplikasi Registrasi Sidik Jari",  # v2.2
+    "Aplikasi Verifikasi dan Registrasi Sidik Jari",
+]
+REAL_FINGER_TITLE = REAL_FINGER_TITLES[0]
 
 
 def desktop(fake, *titles):
     """Answer win_exists/win_wait against a desktop of real window titles.
 
     AutoIt's default WinTitleMatchMode is "start with", so a ``[TITLE:x]``
-    selector matches any window whose title begins with ``x``.
+    selector matches any window whose title begins with ``x``; a
+    ``[REGEXPTITLE:x]`` selector matches when the regex finds a hit.
     """
 
     def matches(selector, *_a):
+        if selector.startswith("[REGEXPTITLE:"):
+            pattern = selector[len("[REGEXPTITLE:"):-1]
+            return int(any(re.search(pattern, title) for title in titles))
         prefix = selector[len("[TITLE:"):-1] if selector.startswith("[TITLE:") else selector
         return int(any(title.startswith(prefix) for title in titles))
 
@@ -77,9 +89,10 @@ def desktop(fake, *titles):
     fake.win_wait.side_effect = matches
 
 
-def test_finger_selector_matches_the_real_window_title(fake_autoit, cfg):
+@pytest.mark.parametrize("title", REAL_FINGER_TITLES)
+def test_finger_selector_matches_the_real_window_title(fake_autoit, cfg, title):
     """A running app must be recognised, or every request opens another copy."""
-    desktop(fake_autoit, REAL_FINGER_TITLE)
+    desktop(fake_autoit, title)
 
     automation.launch_finger("0001234567890", cfg)
 
@@ -87,10 +100,11 @@ def test_finger_selector_matches_the_real_window_title(fake_autoit, cfg):
     assert "0001234567890" in sent(fake_autoit)
 
 
-def test_finger_waits_for_the_real_window_title_after_launching(fake_autoit, cfg):
+@pytest.mark.parametrize("title", REAL_FINGER_TITLES)
+def test_finger_waits_for_the_real_window_title_after_launching(fake_autoit, cfg, title):
     """Nothing is running; the launched app must satisfy the wait, not time out."""
     desktop(fake_autoit)  # empty desktop
-    fake_autoit.run.side_effect = lambda *_a: desktop(fake_autoit, REAL_FINGER_TITLE)
+    fake_autoit.run.side_effect = lambda *_a: desktop(fake_autoit, title)
 
     automation.launch_finger("0001234567890", cfg)
 
